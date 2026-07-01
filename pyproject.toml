@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 license = "GPL"
-include = ["runekit/_resources.py"]
+include = ["runekit/_resources.py", "runekit/app/bundled/*"]
 
 [tool.poetry.dependencies]
 python = "^3.12"

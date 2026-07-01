@@ -30,6 +30,12 @@ def main(app_url, game_index, qt_args):
     logging.info("Starting QtWebEngine")
     browser.init()
 
+    # QtWebEngine composites its content through a shared OpenGL context. Without
+    # this, web views created after startup (e.g. apps launched from the tray)
+    # render offscreen but never paint to their window -- they show up blank.
+    # Must be set before the QApplication is constructed.
+    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
+
     app = QApplication(["runekit", *qt_args])
     app.setQuitOnLastWindowClosed(False)
     app.setOrganizationName("cupco.de")
@@ -59,6 +65,7 @@ def main(app_url, game_index, qt_args):
         else:
             if not host.app_store.has_default_apps():
                 host.app_store.load_default_apps()
+            host.app_store.ensure_bundled_apps()
 
         app.exec()
         sys.exit(0)
