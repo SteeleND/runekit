@@ -1,4 +1,5 @@
 import sys
+import shutil
 import traceback
 from pathlib import Path
 import json
@@ -23,6 +24,14 @@ from runekit.alt1.schema import AppManifest
 from runekit.alt1.utils import fetch_bom_json
 
 REGISTRY_URL = "https://runeapps.org/data/alt1/defaultapps.json"
+
+# Apps bundled with RuneKit and installed on startup in addition to the
+# runeapps.org registry. Each entry is (appconfig filename, icon filename)
+# under runekit/app/bundled/.
+BUNDLED_DIR = Path(__file__).parent / "bundled"
+BUNDLED_APPS = [
+    ("rs3questbuddy.json", "rs3questbuddy.png"),
+]
 
 logger = logging.getLogger(__name__)
 
@@ -317,7 +326,42 @@ class AppStore(QObject):
             manifest = json.loads(settings.value(appid))
             yield appid, manifest
 
-        settings.endGroup()
+    def ensure_bundled_apps(self):
+        """Install RuneKit-bundled apps (idempotent).
+
+        Runs on every startup, independent of the runeapps.org default-apps
+        load, so bundled apps appear in the tray even for users whose defaults
+        were already installed. The app icon ships with RuneKit, so no network
+        access is needed to install (the app content itself is still remote).
+        """
+        for config_file, icon_file in BUNDLED_APPS:
+            try:
+                manifest = json.loads((BUNDLED_DIR / config_file).read_text())
+            except Exception:
+                logger.warning(
+                    "Unable to read bundled app %s", config_file, exc_info=True
+                )
+                continue
+
+            url = manifest["configUrl"]
+            appid = app_id(url)
+            if self.settings.value(f"apps/{appid}") is not None:
+                continue  # already installed
+
+            # Use the bundled icon rather than downloading it.
+            manifest = dict(manifest)
+            manifest["iconUrl"] = ""
+            try:
+                self.add_app(url, manifest)
+                icon_src = BUNDLED_DIR / icon_file
+                if icon_src.exists():
+                    shutil.copyfile(icon_src, self.icon_write_dir / f"{appid}.png")
+                self.add_app_to_folder(appid, "")
+                logger.info("Bundled app %s installed", manifest["appName"])
+            except Exception:
+                logger.warning(
+                    "Unable to install bundled app %s", url, exc_info=True
+                )
 
     def list_app(self, root: str) -> Iterator[Tuple[str, Union[AppManifest, None]]]:
         settings = QSettings()
