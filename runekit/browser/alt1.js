@@ -349,9 +349,12 @@
         // bindGetPixel(id, x, y) {
         //     return -1;
         // },
-        // bindFindSubImg(id, imgstr, imgwidth, x, y, w, h) {
-        //     return '';
-        // },
+        bindFindSubImg(id, imgstr, imgwidth, x, y, w, h) {
+            // imgstr is standard base64 (may contain + and /); make it URL-safe
+            // so it survives the rk: request URL, and RuneKit decodes it back.
+            let safe = imgstr.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            return syncRpc({func: 'bindFindSubImg', id: id, imgstr: safe, imgwidth: imgwidth, x: x, y: y, w: w, h: h});
+        },
         capture(x, y, w, h) {
             let data = syncRpc({func: 'getRegionRaw', x: x, y: y, w: w, h: h});
             return str2ab(data);

@@ -5,9 +5,9 @@ import hashlib
 import logging
 from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 
-from PySide2.QtCore import QObject, QTimer, Qt
-from PySide2.QtGui import QFont, QPen, QImage, QPixmap
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QObject, QTimer, Qt
+from PySide6.QtGui import QFont, QPen, QImage, QPixmap
+from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsDropShadowEffect,
     QGraphicsTextItem,

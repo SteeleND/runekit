@@ -2,10 +2,11 @@ import logging
 import sys
 from typing import TYPE_CHECKING
 
-from PySide2.QtCore import Qt, Slot, QRect, QObject, QUrl
-from PySide2.QtGui import QIcon, QDesktopServices
-from PySide2.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
-from PySide2.QtWidgets import QMainWindow
+from PySide6.QtCore import Qt, Slot, QRect, QObject, QUrl
+from PySide6.QtGui import QIcon, QDesktopServices
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWebEngineCore import QWebEnginePage
+from PySide6.QtWidgets import QMainWindow
 
 from runekit.browser import Alt1WebChannel
 from runekit.ui.game_snap import GameSnapMixin
@@ -114,7 +115,7 @@ class BrowserWindow(GameSnapMixin, QMainWindow):
         if feature == QWebEnginePage.Notifications and self.app.has_permission(
             "overlay"
         ):
-            # FIXME: This doesn't really work - PySide2 doesn't have QWebEngineNotification
+            # FIXME: This doesn't really work - PySide6 doesn't have QWebEngineNotification
             self.browser.page().setFeaturePermission(
                 origin, feature, QWebEnginePage.PermissionGrantedByUser
             )

@@ -7,22 +7,23 @@ license = "GPL"
 include = ["runekit/_resources.py"]
 
 [tool.poetry.dependencies]
-python = "^3.9,<3.10"
+python = "^3.12"
 requests = "^2.26.0"
-PySide2 = "^5.15.2"
-Pillow = "^8.3.1"
+PySide6 = "^6.11"
+Pillow = "^10.0"
 sysv-ipc = [{ version="^1.1.0", platform="linux" }]
 xcffib = [{ version="^0.11.1", platform="linux" }]
-pyobjc-framework-Quartz = [{ version="7.3", platform="darwin" }]
-pyobjc-framework-ApplicationServices = [{ version="7.3", platform="darwin" }]
-pyobjc-framework-CoreText = [{ version="7.3", platform="darwin" }]
+pyobjc-framework-Quartz = [{ version="^12.0", platform="darwin" }]
+pyobjc-framework-ApplicationServices = [{ version="^12.0", platform="darwin" }]
+pyobjc-framework-CoreText = [{ version="^12.0", platform="darwin" }]
+pyobjc-framework-ScreenCaptureKit = [{ version="^12.0", platform="darwin" }]
 click = "^8.0.1"
 psutil = "^5.8.0"
 opencv-python-headless = "^4.5.3.56"
 
 [tool.poetry.dev-dependencies]
-black = "^20.8b1"
-pyinstaller = [{ version="^4.5.1", platform="darwin" }]
+black = "^24.0"
+pyinstaller = [{ version="^6.0", platform="darwin" }]
 
 [tool.poetry.scripts]
 runekit = 'runekit.main:main'

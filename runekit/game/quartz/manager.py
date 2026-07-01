@@ -4,9 +4,9 @@ from typing import List, Dict, Optional, Union
 
 import Quartz
 import ApplicationServices
-from PySide2.QtCore import QTimer, Signal, Slot
-from PySide2.QtGui import QDesktopServices
-from PySide2.QtWidgets import QMessageBox
+from PySide6.QtCore import QTimer, Signal, Slot
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import QMessageBox
 
 from .instance import QuartzGameInstance
 from runekit.game.overlay import DesktopWideOverlay

@@ -1,6 +1,6 @@
-from PySide2.QtCore import Signal, QPoint
-from PySide2.QtGui import QPixmap, Qt, QResizeEvent
-from PySide2.QtWidgets import (
+from PySide6.QtCore import Signal, QPoint
+from PySide6.QtGui import QPixmap, Qt, QResizeEvent
+from PySide6.QtWidgets import (
     QWidget,
     QHBoxLayout,
     QVBoxLayout,

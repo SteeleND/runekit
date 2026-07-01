@@ -4,8 +4,8 @@ import sys
 import traceback
 
 import click
-from PySide2.QtCore import QSettings, Qt, QTimer
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QSettings, Qt, QTimer
+from PySide6.QtWidgets import (
     QApplication,
     QMessageBox,
 )
@@ -60,7 +60,7 @@ def main(app_url, game_index, qt_args):
             if not host.app_store.has_default_apps():
                 host.app_store.load_default_apps()
 
-        app.exec_()
+        app.exec()
         sys.exit(0)
     except Exception as e:
         msg = QMessageBox(
@@ -69,7 +69,7 @@ def main(app_url, game_index, qt_args):
             f"Fatal error: \n\n{e.__class__.__name__}: {e}",
         )
         msg.setDetailedText(traceback.format_exc())
-        msg.exec_()
+        msg.exec()
 
         raise
     finally:

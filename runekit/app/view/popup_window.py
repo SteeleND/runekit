@@ -1,6 +1,6 @@
 import logging
 
-from PySide2.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize
 
 from .browser_window import BrowserWindow
 

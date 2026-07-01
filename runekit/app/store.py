@@ -8,7 +8,7 @@ from typing import Iterator, Tuple, Optional, Union, List
 from urllib.parse import urljoin
 
 import requests
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     QObject,
     QSettings,
     QThread,
@@ -16,8 +16,8 @@ from PySide2.QtCore import (
     Slot,
     QStandardPaths,
 )
-from PySide2.QtGui import QIcon, QPixmap
-from PySide2.QtWidgets import QProgressDialog, QMessageBox
+from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import QProgressDialog, QMessageBox
 
 from runekit.alt1.schema import AppManifest
 from runekit.alt1.utils import fetch_bom_json
@@ -120,6 +120,11 @@ class AppStore(QObject):
 
     def load_default_apps(self):
         def on_progress(value):
+            # The worker thread's progress signal is queued cross-thread, so a
+            # final (value == maximum) emission can still be delivered after we
+            # tear down app_progress below. Ignore those late calls.
+            if not hasattr(self, "app_progress"):
+                return
             if value != self.app_progress.maximum():
                 return
 
@@ -143,6 +148,8 @@ class AppStore(QObject):
 
     def add_app_ui(self, manifests: List[str]):
         def on_progress(value):
+            if not hasattr(self, "app_progress"):
+                return
             if value != self.app_progress.maximum():
                 return
 
@@ -157,7 +164,7 @@ class AppStore(QObject):
                 f"Failed to add application: \n\n{exc_info[0].__name__}: {exc_info[1]}",
             )
             msg.setDetailedText("".join(traceback.format_exception(*exc_info)))
-            msg.exec_()
+            msg.exec()
 
         self.app_progress = QProgressDialog("Installing app", "Cancel", 0, 100)
 
@@ -170,7 +177,7 @@ class AppStore(QObject):
         self.app_progress.canceled.connect(self.add_app_thread.cancel)
         self.add_app_thread.start()
 
-        self.app_progress.exec_()
+        self.app_progress.exec()
 
     def add_app(self, manifest_url: str, manifest: AppManifest):
         appid = app_id(manifest_url)

@@ -2,8 +2,8 @@ import typing
 import json
 from typing import Optional, TypedDict, Union, List
 
-from PySide2.QtCore import QAbstractItemModel, Qt, QModelIndex, QMimeData
-from PySide2.QtGui import QIcon
+from PySide6.QtCore import QAbstractItemModel, Qt, QModelIndex, QMimeData
+from PySide6.QtGui import QIcon
 
 from runekit.alt1.schema import AppManifest
 from runekit.app import AppStore

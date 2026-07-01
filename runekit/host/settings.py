@@ -2,9 +2,9 @@ import json
 import sys
 from typing import TYPE_CHECKING
 
-from PySide2.QtCore import QSize, Qt, Slot, QTimer, QSettings
-from PySide2.QtGui import QIcon
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QSize, Qt, Slot, QTimer, QSettings
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QMainWindow,
@@ -95,7 +95,7 @@ class ApplicationPage(QWidget):
         dialog = QInputDialog(self)
         dialog.setLabelText("Enter appconfig.json URL")
 
-        if dialog.exec_() == QInputDialog.Rejected:
+        if dialog.exec() == QInputDialog.Rejected:
             return
 
         app_url = dialog.textValue().strip()
@@ -105,7 +105,7 @@ class ApplicationPage(QWidget):
         dialog = QInputDialog(self)
         dialog.setLabelText("Directory name")
 
-        if dialog.exec_() == QInputDialog.Rejected:
+        if dialog.exec() == QInputDialog.Rejected:
             return
 
         dirname = dialog.textValue().strip()

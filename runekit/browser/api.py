@@ -5,7 +5,7 @@ import secrets
 from typing import TYPE_CHECKING, Dict, Callable, List, NamedTuple
 from urllib.parse import urljoin
 
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     QObject,
     Slot,
     QBuffer,
@@ -18,9 +18,9 @@ from PySide2.QtCore import (
     QRunnable,
     QJsonValue,
 )
-from PySide2.QtGui import QGuiApplication, QCursor, QScreen
-from PySide2.QtWebChannel import QWebChannel
-from PySide2.QtWebEngineCore import QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob
+from PySide6.QtGui import QGuiApplication, QCursor, QScreen
+from PySide6.QtWebChannel import QWebChannel
+from PySide6.QtWebEngineCore import QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob
 
 from runekit.browser.overlay import OverlayApi
 from runekit.browser.utils import (
@@ -72,6 +72,7 @@ class Alt1Api(QObject):
             "bindRegion": self.bind_region,
             "bindGetRegion": self.bind_get_region,
             "bindGetRegionRaw": self.bind_get_region_raw,
+            "bindFindSubImg": self.bind_find_sub_img,
         }
 
         self._update_screen_info()
@@ -105,23 +106,29 @@ class Alt1Api(QObject):
     # endregion
 
     # region Qt Properties
+    # Alt1 apps work in physical (native) pixel coordinates, while Qt reports
+    # geometry in logical points. Convert everything we hand to the app by the
+    # game's backing scale (rsScaling).
+    def _to_physical(self, value: int) -> int:
+        return int(round(value * self._game_scaling))
+
     def get_screen_info_x(self):
-        return self._screen_info.x()
+        return self._to_physical(self._screen_info.x())
 
     screenInfoX = Property(int, get_screen_info_x, notify=screen_update_signal)
 
     def get_screen_info_y(self):
-        return self._screen_info.y()
+        return self._to_physical(self._screen_info.y())
 
     screenInfoY = Property(int, get_screen_info_y, notify=screen_update_signal)
 
     def get_screen_info_width(self):
-        return self._screen_info.width()
+        return self._to_physical(self._screen_info.width())
 
     screenInfoWidth = Property(int, get_screen_info_width, notify=screen_update_signal)
 
     def get_screen_info_height(self):
-        return self._screen_info.height()
+        return self._to_physical(self._screen_info.height())
 
     screenInfoHeight = Property(
         int, get_screen_info_height, notify=screen_update_signal
@@ -143,15 +150,15 @@ class Alt1Api(QObject):
             # Cursor is out of game
             return 0
 
-        x = value.x() - pos.x()
-        y = value.y() - pos.y()
+        x = self._to_physical(value.x() - pos.x())
+        y = self._to_physical(value.y() - pos.y())
         return encode_mouse(x, y)
 
     mouse_move_signal = Signal()
     mousePosition = Property(int, get_mouse_position, notify=mouse_move_signal)
 
     def get_game_position_x(self):
-        return self._game_position.x()
+        return self._to_physical(self._game_position.x())
 
     game_position_changed_signal = Signal()
     gamePositionX = Property(
@@ -159,21 +166,21 @@ class Alt1Api(QObject):
     )
 
     def get_game_position_y(self):
-        return self._game_position.y()
+        return self._to_physical(self._game_position.y())
 
     gamePositionY = Property(
         int, get_game_position_y, notify=game_position_changed_signal
     )
 
     def get_game_position_width(self):
-        return self._game_position.width()
+        return self._to_physical(self._game_position.width())
 
     gamePositionWidth = Property(
         int, get_game_position_width, notify=game_position_changed_signal
     )
 
     def get_game_position_height(self):
-        return self._game_position.height()
+        return self._to_physical(self._game_position.height())
 
     gamePositionHeight = Property(
         int, get_game_position_height, notify=game_position_changed_signal
@@ -255,6 +262,85 @@ class Alt1Api(QObject):
             return ""
 
         return image_to_stream(image.image, x, y, w, h, mode="rgba", ignore_limit=True)
+
+    def bind_find_sub_img(self, id, imgstr, imgwidth, x=0, y=0, w=None, h=None):
+        """Locate a template sub-image within a bound region.
+
+        Alt1's a1lib uses this (when the host provides it) instead of its strict
+        pure-JS pixel matcher. RuneKit serves the game downscaled from a Retina
+        capture, whose pixels are visually correct but not byte-identical to
+        a1lib's native-1x templates -- so we use tolerant normalized-correlation
+        matching, which reliably locates the template despite small per-pixel
+        drift. Returns a JSON array of {x, y} top-left match positions in the
+        bound region's coordinate space, matching a1lib's expected format.
+        """
+        if not self.app.has_permission("pixel"):
+            raise ApiPermissionDeniedException("pixel")
+
+        import numpy as np
+        import cv2
+
+        if not id or id > len(self._bound_regions):
+            return []
+
+        tw = int(imgwidth)
+        if tw <= 0:
+            return []
+
+        # a1lib encodes templates as base64 of BGRA pixel bytes; make it
+        # URL-safe on the JS side (see alt1.js) so it survives the rk: request.
+        padded = imgstr + "=" * (-len(imgstr) % 4)
+        raw = base64.urlsafe_b64decode(padded)
+        th = len(raw) // 4 // tw
+        if th <= 0:
+            return []
+
+        tmpl_bgra = np.frombuffer(raw, np.uint8)[: th * tw * 4].reshape(th, tw, 4)
+        # Match in colour (BGR->RGB) rather than greyscale: small templates
+        # false-positive readily in greyscale, and Alt1's find() loop keeps the
+        # LAST interface template that matches, so a single false positive
+        # silently overrides a correct detection. Colour matching plus a strict
+        # threshold rejects those while still tolerating the small per-pixel
+        # drift from downscaling a Retina capture.
+        tmpl = np.ascontiguousarray(tmpl_bgra[:, :, [2, 1, 0]])
+        alpha = tmpl_bgra[:, :, 3]
+
+        scene = np.asarray(self._bound_regions[id - 1].image.convert("RGB"))
+
+        sx, sy = max(0, int(x)), max(0, int(y))
+        sw = int(w) if w else scene.shape[1] - sx
+        sh = int(h) if h else scene.shape[0] - sy
+        sub = np.ascontiguousarray(scene[sy : sy + sh, sx : sx + sw])
+        if sub.shape[0] < th or sub.shape[1] < tw:
+            return []
+
+        mask = None
+        if (alpha != 255).any():
+            mask = np.repeat(alpha[:, :, None], 3, axis=2)
+        try:
+            res = cv2.matchTemplate(sub, tmpl, cv2.TM_CCOEFF_NORMED, mask=mask)
+        except cv2.error:
+            res = cv2.matchTemplate(sub, tmpl, cv2.TM_CCOEFF_NORMED)
+        res = np.nan_to_num(res, nan=0.0, posinf=0.0, neginf=0.0)
+
+        # 0.95 separates true matches (typically >=0.99 on a BOX-downscaled
+        # capture, e.g. the slide close-button at 0.992) from the coincidental
+        # correlations small templates produce (e.g. the eocx anchor's 0.934
+        # false positives that would otherwise hijack Alt1's find() loop).
+        ys, xs = np.where(res >= 0.95)
+        candidates = sorted(
+            zip(xs.tolist(), ys.tolist()), key=lambda p: -res[p[1], p[0]]
+        )
+
+        out: List[Dict[str, int]] = []
+        for mx, my in candidates:
+            px, py = mx + sx, my + sy
+            # Suppress near-duplicate matches within one template footprint.
+            if all(abs(px - o["x"]) >= tw or abs(py - o["y"]) >= th for o in out):
+                out.append({"x": px, "y": py})
+            if len(out) >= 50:
+                break
+        return out
 
     # endregion
 

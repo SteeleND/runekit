@@ -1,8 +1,8 @@
 from typing import Union
 
-from PySide2.QtCore import Qt, QTimer, Slot
-from PySide2.QtGui import QCursor
-from PySide2.QtWidgets import QLabel, QMainWindow
+from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import QLabel, QMainWindow
 
 
 class TooltipManager(QMainWindow):
