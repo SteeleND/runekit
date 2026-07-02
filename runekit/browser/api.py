@@ -323,17 +323,28 @@ class Alt1Api(QObject):
             res = cv2.matchTemplate(sub, tmpl, cv2.TM_CCOEFF_NORMED)
         res = np.nan_to_num(res, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # 0.95 separates true matches (typically >=0.99 on a BOX-downscaled
-        # capture, e.g. the slide close-button at 0.992) from the coincidental
-        # correlations small templates produce (e.g. the eocx anchor's 0.934
-        # false positives that would otherwise hijack Alt1's find() loop).
-        ys, xs = np.where(res >= 0.95)
+        # Two-stage match. Correlation alone can't separate a true match on a
+        # downscaled Retina capture (which lands ~0.94-0.99) from a coincidental
+        # correlation (false positives also reach ~0.93). So use correlation
+        # only to propose candidate positions, then confirm each by the actual
+        # per-pixel colour difference: genuine matches are close (mean sum of
+        # |dR|+|dG|+|dB| ~15-20 after downscaling), false positives are not.
+        ys, xs = np.where(res >= 0.90)
         candidates = sorted(
             zip(xs.tolist(), ys.tolist()), key=lambda p: -res[p[1], p[0]]
         )
 
+        tmpl_i = tmpl.astype(np.int16)
+        opaque = alpha >= 128
+        if not opaque.any():
+            opaque = np.ones((th, tw), dtype=bool)
+
         out: List[Dict[str, int]] = []
         for mx, my in candidates:
+            patch = sub[my : my + th, mx : mx + tw].astype(np.int16)
+            mean_diff = float(np.abs(patch - tmpl_i).sum(axis=2)[opaque].mean())
+            if mean_diff > 26:  # correlated by chance, not a genuine match
+                continue
             px, py = mx + sx, my + sy
             # Suppress near-duplicate matches within one template footprint.
             if all(abs(px - o["x"]) >= tw or abs(py - o["y"]) >= th for o in out):
