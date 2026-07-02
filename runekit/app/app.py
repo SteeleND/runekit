@@ -91,7 +91,10 @@ class App:
 
     @property
     def permissions(self) -> List[str]:
-        return self.manifest["permissions"].split(",")
+        # Manifests may space-separate permissions ("overlay, pixel, gamestate"),
+        # so strip each entry -- otherwise " pixel" != "pixel" and the app is
+        # silently denied pixel/overlay access.
+        return [p.strip() for p in self.manifest.get("permissions", "").split(",")]
 
     def has_permission(self, name: str) -> bool:
         return name in self.permissions

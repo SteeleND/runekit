@@ -6,7 +6,7 @@ import logging
 from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QTimer, Qt
-from PySide6.QtGui import QFont, QPen, QImage, QPixmap
+from PySide6.QtGui import QFont, QPen, QImage, QPixmap, QColor
 from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsDropShadowEffect,
@@ -179,11 +179,21 @@ class OverlayApi(QObject):
         self.overlay_continue_group(name)
         self.overlay_freeze_group(name)
 
+    def _overlay_color(self, color: int) -> QColor:
+        # Apps may hardcode an overlay colour that's hard to see; a manifest
+        # "runekitOverlayColor": [r, g, b] lets RuneKit recolour that app's
+        # overlays (e.g. RS3 Quest Buddy's dialog highlight) without touching
+        # the app itself.
+        override = self.api.app.manifest.get("runekitOverlayColor")
+        if override:
+            return QColor(*override)
+        return decode_color(color)
+
     @ensure_overlay
     def overlay_rect(
         self, color: int, x: int, y: int, w: int, h: int, timeout: int, line_width: int
     ):
-        pen = QPen(decode_color(color))
+        pen = QPen(self._overlay_color(color))
         pen.setWidthF(max(1.0, line_width / 10))
 
         gfx = QGraphicsRectItem(x, y, w, h)
@@ -202,7 +212,7 @@ class OverlayApi(QObject):
         y2: int,
         timeout: int,
     ):
-        pen = QPen(decode_color(color))
+        pen = QPen(self._overlay_color(color))
         pen.setWidthF(max(1.0, line_width / 10))
 
         gfx = QGraphicsLineItem(x1, y1, x2, y2)
@@ -224,7 +234,7 @@ class OverlayApi(QObject):
         shadow: bool,
     ):
         gfx = QGraphicsTextItem(message)
-        gfx.setDefaultTextColor(decode_color(color))
+        gfx.setDefaultTextColor(self._overlay_color(color))
 
         if font_name == "" and sys.platform == "darwin":
             # Don't use Helvetica on Mac

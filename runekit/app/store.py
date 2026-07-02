@@ -345,19 +345,22 @@ class AppStore(QObject):
 
             url = manifest["configUrl"]
             appid = app_id(url)
-            if self.settings.value(f"apps/{appid}") is not None:
-                continue  # already installed
+            is_new = self.settings.value(f"apps/{appid}") is None
 
             # Use the bundled icon rather than downloading it.
             manifest = dict(manifest)
             manifest["iconUrl"] = ""
             try:
+                # Always (re)store the manifest so changes to the bundled config
+                # (e.g. runekitOverlayColor) propagate on the next launch.
                 self.add_app(url, manifest)
+                icon_dest = self.icon_write_dir / f"{appid}.png"
                 icon_src = BUNDLED_DIR / icon_file
-                if icon_src.exists():
-                    shutil.copyfile(icon_src, self.icon_write_dir / f"{appid}.png")
-                self.add_app_to_folder(appid, "")
-                logger.info("Bundled app %s installed", manifest["appName"])
+                if icon_src.exists() and not icon_dest.exists():
+                    shutil.copyfile(icon_src, icon_dest)
+                self.add_app_to_folder(appid, "")  # idempotent
+                if is_new:
+                    logger.info("Bundled app %s installed", manifest["appName"])
             except Exception:
                 logger.warning(
                     "Unable to install bundled app %s", url, exc_info=True
