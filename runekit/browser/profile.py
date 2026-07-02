@@ -1,8 +1,8 @@
 import secrets
 from typing import TYPE_CHECKING
 
-from PySide2.QtCore import QFile, QIODevice
-from PySide2.QtWebEngineWidgets import (
+from PySide6.QtCore import QFile, QIODevice
+from PySide6.QtWebEngineCore import (
     QWebEngineProfile,
     QWebEngineScript,
     QWebEngineSettings,

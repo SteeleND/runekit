@@ -2,9 +2,9 @@ import logging
 from typing import TYPE_CHECKING, Callable, Tuple, Dict
 
 import numpy as np
-from PySide2.QtCore import Qt, QRect, QTimer
-from PySide2.QtGui import QGuiApplication, QPen
-from PySide2.QtWidgets import (
+from PySide6.QtCore import Qt, QRect, QRectF, QTimer
+from PySide6.QtGui import QGuiApplication, QPen
+from PySide6.QtWidgets import (
     QMainWindow,
     QGraphicsView,
     QGraphicsScene,
@@ -73,9 +73,15 @@ class DesktopWideOverlay(QMainWindow):
         instance.focusChanged.connect(focusChanged)
 
         instance_pos = instance.get_position()
-        gfx = QGraphicsRectItem(rect=instance_pos)
+        gfx = QGraphicsRectItem(QRectF(instance_pos))
         gfx.setPen(self.transparent_pen)
         gfx.setPos(instance_pos.x(), instance_pos.y())
+        # Apps draw overlays in the game's physical pixel space, but the scene
+        # is in logical screen points. Scale the per-instance anchor down by the
+        # backing scale so child overlay items land at the right screen spot.
+        scale = instance.get_scaling()
+        if scale:
+            gfx.setScale(1.0 / scale)
         self.scene.addItem(gfx)
         self._instances[instance.wid] = gfx
 
@@ -101,7 +107,15 @@ class DesktopWideOverlay(QMainWindow):
 
     def _check_compatibility(self):
         # If we cause black screen then hide ourself out of shame...
+        # On macOS 15+ QScreen.grabWindow may return an empty pixmap (screen
+        # capture is gated behind ScreenCaptureKit/TCC); treat that as
+        # "cannot tell" rather than crashing or hiding the overlay.
         screenshot = QGuiApplication.primaryScreen().grabWindow(0)
+        if screenshot.isNull() or screenshot.width() == 0 or screenshot.height() == 0:
+            self.logger.warning(
+                "Compatibility screenshot unavailable; skipping black-screen check"
+            )
+            return
         image = qpixmap_to_np(screenshot)
         if is_color_percent_gte(image, color=[0, 0, 0], percent=0.95):
             self.logger.warning("Detected black screen condition. Disabling overlay")

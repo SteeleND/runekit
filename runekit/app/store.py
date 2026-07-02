@@ -1,4 +1,5 @@
 import sys
+import shutil
 import traceback
 from pathlib import Path
 import json
@@ -8,7 +9,7 @@ from typing import Iterator, Tuple, Optional, Union, List
 from urllib.parse import urljoin
 
 import requests
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     QObject,
     QSettings,
     QThread,
@@ -16,13 +17,21 @@ from PySide2.QtCore import (
     Slot,
     QStandardPaths,
 )
-from PySide2.QtGui import QIcon, QPixmap
-from PySide2.QtWidgets import QProgressDialog, QMessageBox
+from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import QProgressDialog, QMessageBox
 
 from runekit.alt1.schema import AppManifest
 from runekit.alt1.utils import fetch_bom_json
 
 REGISTRY_URL = "https://runeapps.org/data/alt1/defaultapps.json"
+
+# Apps bundled with RuneKit and installed on startup in addition to the
+# runeapps.org registry. Each entry is (appconfig filename, icon filename)
+# under runekit/app/bundled/.
+BUNDLED_DIR = Path(__file__).parent / "bundled"
+BUNDLED_APPS = [
+    ("rs3questbuddy.json", "rs3questbuddy.png"),
+]
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +129,11 @@ class AppStore(QObject):
 
     def load_default_apps(self):
         def on_progress(value):
+            # The worker thread's progress signal is queued cross-thread, so a
+            # final (value == maximum) emission can still be delivered after we
+            # tear down app_progress below. Ignore those late calls.
+            if not hasattr(self, "app_progress"):
+                return
             if value != self.app_progress.maximum():
                 return
 
@@ -143,6 +157,8 @@ class AppStore(QObject):
 
     def add_app_ui(self, manifests: List[str]):
         def on_progress(value):
+            if not hasattr(self, "app_progress"):
+                return
             if value != self.app_progress.maximum():
                 return
 
@@ -157,7 +173,7 @@ class AppStore(QObject):
                 f"Failed to add application: \n\n{exc_info[0].__name__}: {exc_info[1]}",
             )
             msg.setDetailedText("".join(traceback.format_exception(*exc_info)))
-            msg.exec_()
+            msg.exec()
 
         self.app_progress = QProgressDialog("Installing app", "Cancel", 0, 100)
 
@@ -170,7 +186,7 @@ class AppStore(QObject):
         self.app_progress.canceled.connect(self.add_app_thread.cancel)
         self.add_app_thread.start()
 
-        self.app_progress.exec_()
+        self.app_progress.exec()
 
     def add_app(self, manifest_url: str, manifest: AppManifest):
         appid = app_id(manifest_url)
@@ -310,7 +326,42 @@ class AppStore(QObject):
             manifest = json.loads(settings.value(appid))
             yield appid, manifest
 
-        settings.endGroup()
+    def ensure_bundled_apps(self):
+        """Install RuneKit-bundled apps (idempotent).
+
+        Runs on every startup, independent of the runeapps.org default-apps
+        load, so bundled apps appear in the tray even for users whose defaults
+        were already installed. The app icon ships with RuneKit, so no network
+        access is needed to install (the app content itself is still remote).
+        """
+        for config_file, icon_file in BUNDLED_APPS:
+            try:
+                manifest = json.loads((BUNDLED_DIR / config_file).read_text())
+            except Exception:
+                logger.warning(
+                    "Unable to read bundled app %s", config_file, exc_info=True
+                )
+                continue
+
+            url = manifest["configUrl"]
+            appid = app_id(url)
+            if self.settings.value(f"apps/{appid}") is not None:
+                continue  # already installed
+
+            # Use the bundled icon rather than downloading it.
+            manifest = dict(manifest)
+            manifest["iconUrl"] = ""
+            try:
+                self.add_app(url, manifest)
+                icon_src = BUNDLED_DIR / icon_file
+                if icon_src.exists():
+                    shutil.copyfile(icon_src, self.icon_write_dir / f"{appid}.png")
+                self.add_app_to_folder(appid, "")
+                logger.info("Bundled app %s installed", manifest["appName"])
+            except Exception:
+                logger.warning(
+                    "Unable to install bundled app %s", url, exc_info=True
+                )
 
     def list_app(self, root: str) -> Iterator[Tuple[str, Union[AppManifest, None]]]:
         settings = QSettings()

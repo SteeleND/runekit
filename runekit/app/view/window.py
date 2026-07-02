@@ -2,8 +2,8 @@ import logging
 import sys
 from typing import Optional
 
-from PySide2.QtCore import QSize, Qt, QThreadPool, QSettings
-from PySide2.QtGui import QIcon
+from PySide6.QtCore import QSize, Qt, QThreadPool, QSettings
+from PySide6.QtGui import QIcon
 
 from runekit.app.view.browser_window import BrowserWindow
 

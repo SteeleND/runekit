@@ -4,8 +4,8 @@ import sys
 import traceback
 
 import click
-from PySide2.QtCore import QSettings, Qt, QTimer
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QSettings, Qt, QTimer
+from PySide6.QtWidgets import (
     QApplication,
     QMessageBox,
 )
@@ -29,6 +29,12 @@ def main(app_url, game_index, qt_args):
 
     logging.info("Starting QtWebEngine")
     browser.init()
+
+    # QtWebEngine composites its content through a shared OpenGL context. Without
+    # this, web views created after startup (e.g. apps launched from the tray)
+    # render offscreen but never paint to their window -- they show up blank.
+    # Must be set before the QApplication is constructed.
+    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
 
     app = QApplication(["runekit", *qt_args])
     app.setQuitOnLastWindowClosed(False)
@@ -59,8 +65,9 @@ def main(app_url, game_index, qt_args):
         else:
             if not host.app_store.has_default_apps():
                 host.app_store.load_default_apps()
+            host.app_store.ensure_bundled_apps()
 
-        app.exec_()
+        app.exec()
         sys.exit(0)
     except Exception as e:
         msg = QMessageBox(
@@ -69,7 +76,7 @@ def main(app_url, game_index, qt_args):
             f"Fatal error: \n\n{e.__class__.__name__}: {e}",
         )
         msg.setDetailedText(traceback.format_exc())
-        msg.exec_()
+        msg.exec()
 
         raise
     finally:
