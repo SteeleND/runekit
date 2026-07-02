@@ -12,5 +12,6 @@
 	"maxHeight": 1000,
 	"requestHandlers": [],
 	"activators": [],
-	"permissions": "overlay, pixel, gamestate"
+	"permissions": "overlay, pixel, gamestate",
+	"runekitOverlayColor": [255, 0, 0]
 }
